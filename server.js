@@ -6,7 +6,7 @@ import connectCloudinary from './config/cloudinary.js';
 import adminRouter from './routes/admin.route.js';
 import doctorRouter from './routes/doctor.route.js';
 import userRouter from './routes/user.route.js';
-import paymentRoutes from './routes/payment.route.js'
+import appointmentRouter from './routes/appointment.route.js';
 
 // app config
 const app = express();
@@ -18,11 +18,16 @@ connectCloudinary();
 app.use(express.json());
 app.use(cors());
 
+app.use(cors({
+  origin: 'https://user-frontend-service.onrender.com'  // Yahan apni frontend ki origin daalein
+}));
+
+
 // api endpoints
 app.use('/api/admin' , adminRouter)
 app.use('/api/doctor' , doctorRouter)
 app.use('/api/user' , userRouter)
-app.use("/api/payment", paymentRoutes);
+app.use("/api/appointment",appointmentRouter)
 
 app.get("/" , (req , res) => {
     res.send("server started...")

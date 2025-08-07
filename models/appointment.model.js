@@ -53,7 +53,7 @@ const appointmentSchema = new mongoose.Schema({
     paid: {
         type: Boolean,
         default: false,
-    }
+    },
 })
 
 const appointmentModel = mongoose.models.appointment || mongoose.model('appointment', appointmentSchema) 

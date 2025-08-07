@@ -5,6 +5,7 @@ import doctorModel from "../models/doctor.model.js"
 import jwt from 'jsonwebtoken'
 import {v2 as cloudinary} from 'cloudinary'
 import appointmentModel from '../models/appointment.model.js'
+import { sendEmail } from "../Utils/SendEmail.js";
 
 // API to register user
 const registerUser = async (req,res) => {
@@ -107,19 +108,23 @@ const updateProfile = async (req,res) => {
 
 // API to book appointment
 const bookAppointment = async (req,res) => {
+    console.log("📅 [API] bookAppointment called");
+    console.log("recieved req",req.body);
+    
     try {
         const {docId,slotDate, slotTime} = req.body;
         const userId = req.userId;
         const docData = await doctorModel.findById(docId).select('-password')
+        console.log("🩺 docData:", docData);
         if (!docData.available) {
-            res.json({success:false,message:"Doctor Not Available"})
+           return res.json({success:false,message:"Doctor Not Available"})
         }
         let slots_booked = docData.slots_booked
 
         // checking for slots availability
         if (slots_booked[slotDate]) {
             if (slots_booked[slotDate].includes(slotTime)) {
-              res.json({success:false,message:"Slots Not Available"})  
+             return res.json({success:false,message:"Slots Not Available"})  
             }else{
                 slots_booked[slotDate].push(slotTime)
             }
@@ -147,9 +152,69 @@ const bookAppointment = async (req,res) => {
         const newAppointment = new appointmentModel(appointmentData)
         await newAppointment.save()
 
-        // save new slots data in doctor data 
+         // save new slots data in doctor data 
         await doctorModel.findByIdAndUpdate(docId,{slots_booked})
-        return res.json({success:true , message:"Appointment Booked"})
+
+         // Send confirmation email to user
+       try {
+  await sendEmail(
+    userData.email,
+   "Appointment Confirmation –" + docData.name,
+  `
+Dear ${userData.name},
+
+✅ Your appointment has been successfully confirmed!
+
+📅 Date: ${slotDate.replace(/_/g, "/")}
+⏰ Time: ${slotTime}
+👩‍⚕️ Doctor:  ${docData.name} (${docData.speciality})
+📍 Clinic Address: ${docData.address?.line1 || "Clinic address not available"}
+
+💳 Appointment Fee: ${docData.fees} PKR
+
+Please arrive 10 minutes before your scheduled appointment time. If you have any questions, feel free to reach out.
+
+Thank you for using our platform.
+
+Warm regards,  
+HealthCare App Team
+  `
+  );
+//   console.log("User confirmation email sent successfully.");
+} catch (err) {
+  console.error("Error sending user confirmation email:", err);
+}
+// console.log("About to send doctor email");
+try {
+  await sendEmail(
+    docData.email,
+   " New Appointment Booked – " + userData.name,
+  `
+Dear Dr. ${docData.name},
+
+📢 A new appointment has been scheduled with you.
+
+👤 Patient: ${userData.name}
+📧 Email: ${userData.email}
+📞 Phone: ${userData.phone || "Not provided"}
+
+📅 Date: ${slotDate.replace(/_/g, "/")}
+⏰ Time: ${slotTime}
+
+Please make the necessary preparations and be available at the scheduled time.
+
+Thank you for your continued dedication.
+
+Best regards,  
+HealthCare App Team
+  `
+  );
+  console.log("Doctor notification email sent successfully.");
+} catch (err) {
+  console.error("Error sending doctor notification email:", err);
+}
+return res.json({success:true, message:"Appointment booked successfully"});
+
     } catch (error) {
          console.log(error);
          return res.json({success:false , message:error.message})
