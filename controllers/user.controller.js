@@ -170,7 +170,7 @@ Dear ${userData.name},
 👩‍⚕️ Doctor:  ${docData.name} (${docData.speciality})
 📍 Clinic Address: ${docData.address?.line1 || "Clinic address not available"}
 
-💳 Appointment Fee: ${docData.fees} PKR
+💳 Appointment Fee: $${ docData.fees} 
 
 Please arrive 10 minutes before your scheduled appointment time. If you have any questions, feel free to reach out.
 
@@ -190,7 +190,7 @@ try {
     docData.email,
    " New Appointment Booked – " + userData.name,
   `
-Dear Dr. ${docData.name},
+Dear ${docData.name},
 
 📢 A new appointment has been scheduled with you.
 
