@@ -1,13 +1,17 @@
 import mongoose from 'mongoose'
+// import userModel from './user.model.js';
+// import doctorModel from './doctor.model.js';
 
 
 const appointmentSchema = new mongoose.Schema({
     userId:{
-     type:String,
+     type:mongoose.Schema.Types.ObjectId,
+     ref:'user',
      required:true
     },
     docId:{
-        type:String,
+        type:mongoose.Schema.Types.ObjectId,
+        ref:'doctor',
         required:true
     },
     slotDate:{

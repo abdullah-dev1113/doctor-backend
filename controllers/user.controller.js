@@ -235,39 +235,128 @@ const listAppointments = async (req,res) => {
 }
 
 // API to cancel the appointments
-const cancelAppointment = async (req,res) => {
-    try {
-        const {appointmentId} = req.body;
-        const userId = req.userId;
-        const appointmentData = await appointmentModel.findById(appointmentId)
-        if (!appointmentData) {
-  return res.json({ success: false, message: "Appointment not found" });
-}
+// const cancelAppointment = async (req,res) => {
+//     try {
+//         const {appointmentId} = req.body;
+//         const userId = req.userId;
+//         const appointmentData = await appointmentModel.findById(appointmentId)
+//         if (!appointmentData) {
+//   return res.json({ success: false, message: "Appointment not found" });
+// }
 
-        // verify appointment user
-        if (appointmentData.userId !== userId) {
-            return res.json({success:false , message:"Unauthorized Action"})
+//         // verify appointment user
+//         if (appointmentData.userId !== userId) {
+//             return res.json({success:false , message:"Unauthorized Action"})
+//         }
+
+//         await appointmentModel.findByIdAndUpdate(appointmentId,{cancelled:true})
+
+//         // releasing doctor slots
+
+//         const {docId , slotDate , slotTime} = appointmentData
+
+//         const doctorData = await doctorModel.findById(docId)
+
+//         let slots_booked = doctorData.slots_booked
+
+//         slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
+//         await doctorModel.findByIdAndUpdate(docId,{slots_booked})
+
+//         res.json({success:true , message:"Appointment Cancelled"})
+//     } catch (error) {
+//         console.log(error);
+//          return res.json({success:false , message:error.message})
+//     }
+// }
+
+
+const cancelAppointment = async (req, res) => {
+    try {
+        const { appointmentId } = req.body;
+        const userId = req.userId;
+        const appointmentData = await appointmentModel.findById(appointmentId);
+        
+        if (!appointmentData) {
+            return res.json({ success: false, message: "Appointment not found" });
         }
 
-        await appointmentModel.findByIdAndUpdate(appointmentId,{cancelled:true})
+        // Verify appointment user
+        if (appointmentData.userId.toString() !== userId) {
+            return res.json({ success: false, message: "Unauthorized Action" });
+        }
 
-        // releasing doctor slots
+        await appointmentModel.findByIdAndUpdate(appointmentId, { cancelled: true });
 
-        const {docId , slotDate , slotTime} = appointmentData
+        // Releasing doctor slots
+        const { docId, slotDate, slotTime } = appointmentData;
+        const doctorData = await doctorModel.findById(docId);
+        let slots_booked = doctorData.slots_booked;
 
-        const doctorData = await doctorModel.findById(docId)
+        if (slots_booked[slotDate]) {
+            slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime);
+            await doctorModel.findByIdAndUpdate(docId, { slots_booked });
+        }
 
-        let slots_booked = doctorData.slots_booked
+        // Sending cancellation emails
+        const userData = await userModel.findById(userId).select('-password');
 
-        slots_booked[slotDate] = slots_booked[slotDate].filter(e => e !== slotTime)
-        await doctorModel.findByIdAndUpdate(docId,{slots_booked})
+        // Send cancellation email to user
+        try {
+            await sendEmail(
+                userData.email,
+                "Appointment Cancellation Confirmation – " + doctorData.name,
+                `
+Dear ${userData.name},
 
-        res.json({success:true , message:"Appointment Cancelled"})
+❌ Your appointment with Dr. ${doctorData.name} has been successfully cancelled.
+
+📅 Date: ${slotDate.replace(/_/g, "/")}
+⏰ Time: ${slotTime}
+👨‍⚕️ Doctor: ${doctorData.name} (${doctorData.speciality})
+📍 Clinic Address: ${doctorData.address?.line1 || "Clinic address not available"}
+
+If this was a mistake or you’d like to reschedule, please book a new appointment at your convenience.
+
+Best regards,  
+HealthCare App Team
+                `
+            );
+        } catch (err) {
+            console.error("Error sending cancellation email to user:", err);
+        }
+
+        // Send cancellation email to doctor
+        try {
+            await sendEmail(
+                doctorData.email,
+                "Appointment Cancelled – " + userData.name,
+                `
+Dear ${doctorData.name},
+
+❗ The following appointment has been cancelled:
+
+👤 Patient: ${userData.name}
+📧 Email: ${userData.email}
+📅 Date: ${slotDate.replace(/_/g, "/")}
+⏰ Time: ${slotTime}
+
+The slot has been released and is now available for booking.
+
+Thank you,  
+HealthCare App Team
+                `
+            );
+        } catch (err) {
+            console.error("Error sending cancellation email to doctor:", err);
+        }
+
+        res.json({ success: true, message: "Appointment Cancelled and emails sent." });
+
     } catch (error) {
         console.log(error);
-         return res.json({success:false , message:error.message})
+        return res.json({ success: false, message: error.message });
     }
-}
+};
 
 
 export {registerUser , userLogin ,getProfile , updateProfile,bookAppointment , listAppointments , cancelAppointment}
